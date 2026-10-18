@@ -1,0 +1,5 @@
+python-dotenv==1.0.1
+rich==13.7.1
+
+# Ajoute ici les dépendances IA si nécessaire
+# openai>=1.40.0
