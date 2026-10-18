@@ -7,16 +7,15 @@ from datetime import datetime
 from typing import List, Dict, Optional
 import asyncio
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import openai
 
-from server.license_manager import validate_license
-
+# Charger .env
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-3.5-turbo")
@@ -26,6 +25,7 @@ if OPENAI_API_KEY:
 
 app = FastAPI(title="ntumba IA - Chat MVP")
 
+# CORS (optionnel)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,6 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve frontend static files
 app.mount("/", StaticFiles(directory="web", html=True), name="web")
 
 DB_PATH = "chat.db"
@@ -42,11 +43,9 @@ SYSTEM_PROMPT = (
     "Vous êtes ntumba IA, un assistant utile, poli et concis. Répondez en français par défaut."
 )
 
-
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-    license_key: Optional[str] = None
 
 
 def init_db() -> None:
@@ -87,21 +86,24 @@ def load_history(session_id: str, limit: int = 10) -> List[Dict]:
     )
     rows = cur.fetchall()
     conn.close()
+    # rows are in reverse order (newest first) -> reverse to chronological
     rows.reverse()
     return [{"role": r[0], "content": r[1], "created_at": r[2]} for r in rows]
 
 
-async def call_openai_chat(messages: List[Dict], model_name: str = DEFAULT_MODEL) -> str:
+async def call_openai_chat(messages: List[Dict]) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY n'est pas défini. Ajoutez-le dans .env.")
 
+    # openai.ChatCompletion.create is blocking; run in thread
     def _call():
         resp = openai.ChatCompletion.create(
-            model=model_name,
+            model=DEFAULT_MODEL,
             messages=messages,
             temperature=0.7,
             max_tokens=512,
         )
+        # Extraction sécurisée
         choices = resp.get("choices", [])
         if not choices:
             return ""
@@ -124,35 +126,23 @@ async def chat_endpoint(req: ChatRequest):
         if not user_message:
             raise HTTPException(status_code=400, detail="Le message est vide.")
 
-        # Validation Pro
-        is_pro = False
-        plan = "basic"
-        if req.license_key:
-            license = validate_license(req.license_key)
-            is_pro = bool(license)
-            if license:
-                plan = license.get("plan", "pro")
-
+        # Sauvegarde du message utilisateur
         save_message(session_id, "user", user_message)
 
+        # Construire l'historique pour le modèle
         history = load_history(session_id, limit=12)
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         for m in history:
             messages.append({"role": m["role"], "content": m["content"]})
         messages.append({"role": "user", "content": user_message})
 
-        model_name = DEFAULT_MODEL
-        reply = await call_openai_chat(messages, model_name=model_name)
+        # Appel OpenAI (bloquant exécuté en thread)
+        reply = await call_openai_chat(messages)
 
+        # Sauvegarde de la réponse
         save_message(session_id, "assistant", reply)
 
-        return JSONResponse({
-            "reply": reply,
-            "session_id": session_id,
-            "plan": plan,
-            "is_pro": is_pro,
-        })
-
+        return JSONResponse({"reply": reply, "session_id": session_id})
     except RuntimeError as re:
         raise HTTPException(status_code=500, detail=str(re))
     except Exception as e:
