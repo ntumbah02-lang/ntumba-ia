@@ -1,75 +1,25 @@
-# ntumba IA
+# ntumba IA - Chat MVP
 
-Bienvenue dans le projet `ntumba IA`, un point de départ simple pour construire une application Python d'intelligence artificielle.
+J'ai ajouté une implémentation MVP qui transforme ntumba IA en un assistant de type ChatGPT : backend FastAPI + frontend web simple, stockage SQLite pour l'historique, adaptateur OpenAI prêt à l'emploi.
 
-## Objectif
-
-Ce dépôt contient une base propre et fonctionnelle pour :
-- démarrer un projet Python rapidement,
-- organiser le code de manière claire,
-- préparer l'intégration d'une API IA (OpenAI, etc.),
-- servir comme base pour un prototype ou une application interne.
-
-## Structure du projet
-
-```text
-ntumba-ia/
-├── .env.example
-├── .gitignore
-├── README.md
-├── requirements.txt
-├── ntumba_ia/
-│   ├── __init__.py
-│   ├── __main__.py
-│   └── app.py
-└── tests/
-    └── __init__.py
-```
-
-## Prérequis
-
-- Python 3.10+
-- pip
-
-## Installation
+Commandes pour exécuter en local :
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Configuration
-
-Copiez le fichier d'exemple :
-
-```bash
 cp .env.example .env
+# ajoutez votre clé OPENAI_API_KEY dans .env
+uvicorn server.main:app --reload --host 0.0.0.0 --port 8000
+# puis ouvrez http://localhost:8000
 ```
 
-Puis modifiez les valeurs si nécessaire.
+API principale :
+- POST /api/chat  -> {"message": "bonjour", "session_id": "optional"} -> {"reply": "...", "session_id": "..."}
 
-## Lancer l'application
+Notes :
+- L'interface web est en français.
+- Aucune clé API n'a été committée. Mettez OPENAI_API_KEY dans .env avant d'appeler l'API.
+- Pour ajouter Anthropic/Claude plus tard, j'ai prévu un adaptateur; demandez et je l'active.
 
-```bash
-python -m ntumba_ia
-```
-
-## Exemple de sortie
-
-```text
-Bienvenue dans ntumba IA
-Votre assistant est prêt.
-```
-
-## Personnalisation
-
-Vous pouvez étendre le fichier `ntumba_ia/app.py` pour ajouter :
-- des appels à une API d'IA,
-- un chatbot en ligne de commande,
-- une interface web,
-- des fonctionnalités de traitement de texte, d'analyse ou d'automatisation.
-
-## Licence
-
-Ce projet est sous licence MIT.
+Licence: MIT

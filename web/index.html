@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ntumba IA — Chat</title>
+    <style>
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; padding:0; background:#f6f8fa; }
+      .container { max-width:800px; margin:40px auto; background:#fff; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden }
+      header { padding:16px 24px; border-bottom:1px solid #eee }
+      .chat { padding:16px 24px; height:60vh; overflow:auto }
+      .input { display:flex; gap:8px; padding:12px; border-top:1px solid #eee }
+      .bubble { padding:12px 16px; border-radius:12px; margin-bottom:10px; max-width:75% }
+      .user { background:#e6f4ff; align-self:flex-end }
+      .assistant { background:#f1f3f5 }
+      .meta { font-size:12px; color:#666; margin-bottom:8px }
+      textarea { flex:1; padding:8px; border:1px solid #ddd; border-radius:8px; resize:none }
+      button { padding:10px 12px; border-radius:8px; border:none; background:#2563eb; color:#fff }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h2>ntumba IA — Chat</h2>
+        <div class="meta">Assistant en français · Modèle : <span id="model">loading</span></div>
+      </header>
+      <div class="chat" id="chat"></div>
+      <div class="input">
+        <textarea id="message" rows="2" placeholder="Écrivez votre message..."></textarea>
+        <button id="send">Envoyer</button>
+      </div>
+    </div>
+
+    <script>
+      const chatEl = document.getElementById('chat')
+      const sendBtn = document.getElementById('send')
+      const msgInput = document.getElementById('message')
+      let sessionId = null
+
+      document.getElementById('model').textContent = 'Chargement...'
+
+      // Show message in UI
+      function addBubble(role, text) {
+        const b = document.createElement('div')
+        b.className = 'bubble ' + (role === 'user' ? 'user' : 'assistant')
+        b.textContent = text
+        chatEl.appendChild(b)
+        chatEl.scrollTop = chatEl.scrollHeight
+      }
+
+      async function sendMessage() {
+        const text = msgInput.value.trim()
+        if (!text) return
+        addBubble('user', text)
+        msgInput.value = ''
+        sendBtn.disabled = true
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, session_id: sessionId })
+          })
+          const data = await res.json()
+          if (res.ok) {
+            sessionId = data.session_id
+            addBubble('assistant', data.reply)
+          } else {
+            addBubble('assistant', 'Erreur: ' + (data.detail || 'Erreur serveur'))
+          }
+        } catch (err) {
+          addBubble('assistant', 'Erreur réseau: ' + err.message)
+        } finally {
+          sendBtn.disabled = false
+        }
+      }
+
+      sendBtn.addEventListener('click', sendMessage)
+      msgInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault()
+          sendMessage()
+        }
+      })
+
+      // Fetch model from server env (optional endpoint) — show DEFAULT_MODEL
+      document.getElementById('model').textContent = (new URLSearchParams(window.location.search).get('model') || 'gpt-3.5-turbo')
+
+    </script>
+  </body>
+</html>
