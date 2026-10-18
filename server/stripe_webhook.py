@@ -28,17 +28,14 @@ async def stripe_webhook(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Webhook signature verification failed: {e}")
 
-    # Handle the checkout completed event
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        # Try to get the customer's email
         customer_email = None
         if session.get("customer_details"):
             customer_email = session["customer_details"].get("email")
         if not customer_email:
             customer_email = session.get("customer_email")
 
-        # Allow passing plan/days via metadata in the Checkout Session
         metadata = session.get("metadata") or {}
         plan = metadata.get("plan", "pro")
         try:
@@ -46,17 +43,12 @@ async def stripe_webhook(request: Request):
         except Exception:
             days = 365
 
-        # Generate a license key
         key = generate_license(customer_email or "unknown", plan=plan, days=days)
 
-        # Try to send the license key by email (best-effort)
         try:
             if customer_email:
                 send_license_email(customer_email, key, plan=plan)
         except Exception:
-            # don't fail the webhook if email sending fails
             pass
-
-    # You can expand to handle other event types (invoice.payment_succeeded, etc.)
 
     return {"status": "ok"}

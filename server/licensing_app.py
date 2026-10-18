@@ -11,7 +11,6 @@ from server.license_manager import validate_license
 
 app = FastAPI(title="ntumba IA licensing API")
 
-# Serve static landing page
 landing_path = Path(__file__).resolve().parent.parent / "web"
 landing_path.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(landing_path)), name="static")
